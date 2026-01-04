@@ -3,6 +3,27 @@ const roastBtn = document.getElementById("roastBtn");
 const loadingText = document.getElementById("loading");
 const roastOutput = document.getElementById("roastOutput");
 
+
+roastBtn.addEventListener("click", async () => {
+
+    roastOutput.textContent = "";
+    loadingText.classList.remove("hidden");
+    roastBtn.disabled = true;
+
+    try{
+        const response = await fetch("http://localhost:3000/roast");
+        const data = await response.json();
+
+        roastOutput.textContent = data.roast;
+    }catch(error){
+        roastOutput.textContent = "Something went wrong ~womp womp womp~"
+    }
+
+    loadingText.classList.add("hidden");
+    roastBtn.disabled = false;
+});
+
+ /* this is actually the first of making this js file ill be just commenting it out 
 // when button is clicked
 roastBtn.addEventListener("click", () => {
 
@@ -15,7 +36,8 @@ roastBtn.addEventListener("click", () => {
     // disable button to prevent spam clicks
     roastBtn.disabled = true;
 
-    // fake delay to simulate analysis
+   
+    // fake delay to simulate analysis 
     setTimeout(() => {
         const fakeRoast = `
     You really wake up everyday and choose THIS music?
@@ -36,5 +58,6 @@ roastBtn.addEventListener("click", () => {
 
         // enable button again
         roastBtn.disabled = false;
-    }, 2000);
+    }, 2000); */
+
 });
