@@ -16,14 +16,82 @@ app.use(express.static(path.join(__dirname, "public")));
 //     res.send("Backend is running!");
 // });
 
+// Redirect user to Spotify login
+app.get("/login", (req, res) => {
+    const scope = "user-top-read user-read-recently-played";
+    const authURL = "https://accounts.spotify.com/authorize?" +
+        new URLSearchParams({
+            response_type: "code",
+            client_id: process.env.SPOTIFY_CLIENT_ID,
+            scope: scope,
+            redirect_uri: process.env.SPOTIFY_REDIRECT_URI
+        });
+    res.redirect(authURL);
+});
+
+// SPotify redirects back here with a code
+app.get("/callback", async (req, res) => {
+    const code = req.query.code;
+
+    try{
+        // exchange code for access token
+        const tokenRes = await axios.post(
+            "https://accounts.spotify.com/api/token",
+            new URLSearchParams({
+                grant_type: "authorization_code",
+                code: code,
+                redirect_uri: process.env.SPOTIFY_REDIRECT_URI
+            }),
+            {
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Authorization": "Basic " + Buffer.from(
+                        process.env.SPOTIFY_CLIENT_ID + ":" + process.env.SPOTIFY_CLIENT_SECRET
+                    ).toString("base64")
+                }
+            }
+        );
+
+        const accessToken = tokenRes.data.access_token;
+
+        // Get top artists
+        const topArtists = await axios.get(
+            "https://api.spotify.com/v1/me/top/artists?limit=5",,
+            { headers: { "Authorization": "Bearer " + accessToken } }
+        );
+
+        // Get recently played
+        const recentTracks = await axios.get(
+            "https://api.spotify.com/v1/me/player/recently-played?limit=5",
+            { headers: { "Authorization": "Bearer " + accessToken } }
+        );
+
+        const artists = topArtists.data.items.map(a => a.name).join(", ");
+        const tracks = recentTracks.data.items.map(t => t.track.name).join(", ");
+        
+        // Redirects to roast page with data in query
+        res.redirect('/?artists=${encodeURIComponent(artists)}&tracks=${encodeURIComponent(tracks)}');
+
+    } catch (err) {
+        console.error("FULL ERROR:");
+        if (err.response) {
+            console.error("Status:", err.response.status);
+            console.error("Data:", JSON.stringify(err.response.data));
+        } else {
+            console.error(err.message);
+        }
+        res.send("Spotify login failed: " + err.message);
+    }
+});
+
 // GEMINI ROAST ROUTE
 app.get("/roast", async (req, res) => {
     try {
+        const artists = req.query.artists || "unknown artists";
+        const tracks = req.query.tracks || "unknown tracks";
         const spotifySummary = `
-            Top artist: Taylor Swift, Drake
-            Top genre: sad pop, emotional hip-hop
-            Mood: late night overthinking
-            Repeats the same songs daily
+            Top artists: ${artists}
+            Recently played: ${tracks}
         `;
 
         const prompt = `
@@ -75,6 +143,8 @@ app.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "cooked.html"));
 });
 
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+app.listen(PORT, "127.0.0.1", () => {
+    console.log(`Server running on http://127.0.0.1:${PORT}`);
 });
+
+//http://127.0.0.1:3000
